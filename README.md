@@ -18,7 +18,7 @@ threshold breaches and downtime — with JWT auth and admin/viewer roles.
 ## Project structure
 
 ```
-server/            Express API
+server/            Express API (+ Dockerfile)
   src/
     config/        MongoDB connection
     models/        User, Machine, Reading, Alert (Mongoose schemas)
@@ -27,16 +27,37 @@ server/            Express API
     middleware/     JWT auth (protect/authorize), error handler
     services/       simulationService.js — the telemetry generator
     seed.js         Creates an admin user + starter machines
-client/            React (Vite) app
+client/            React (Vite) app (+ Dockerfile)
   src/
     api/            Axios instance with JWT interceptor
     context/        AuthContext (login/register/logout, current user)
     components/     Navbar, Layout, StatCard, badges, ProtectedRoute
     pages/          Login, Register, Dashboard, Machines, MachineDetail, Alerts
     theme/colors.js Shared chart/badge color tokens
+docker-compose.yml  Mongo + API + client, wired together for local dev
 ```
 
-## Getting started
+## Quick start with Docker (recommended)
+
+Requires only Docker + Docker Compose — no local Node or MongoDB install.
+
+```bash
+# 1. Build and start Mongo + the API + the client
+docker compose up --build
+
+# 2. In another terminal, seed an admin user + starter machines
+docker compose exec server npm run seed
+```
+
+- API: http://localhost:5000 (health check at `/api/health`)
+- Client: http://localhost:5173
+
+Source files are bind-mounted into the containers, so edits on your host
+hot-reload inside them (nodemon for the API, Vite HMR for the client). Stop
+everything with `docker compose down` (add `-v` to also drop the MongoDB
+volume and start fresh next time).
+
+## Manual setup (without Docker)
 
 Requires Node 18+ and a running MongoDB instance (local or Atlas).
 
@@ -58,7 +79,7 @@ npm run dev
 - API: http://localhost:5000 (health check at `/api/health`)
 - Client: http://localhost:5173
 
-Default seeded admin login (override via `server/.env`):
+Default seeded admin login (override via `server/.env`, or the `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` env vars under Docker):
 
 ```
 email:    admin@smartfactory.io
