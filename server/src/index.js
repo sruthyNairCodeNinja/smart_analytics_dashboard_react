@@ -14,7 +14,25 @@ const statsRoutes = require('./routes/statsRoutes');
 
 const app = express();
 
-app.use(cors({ origin: process.env.CLIENT_ORIGIN || '*' }));
+// CLIENT_ORIGIN accepts one origin or a comma-separated list — useful when the
+// frontend has both a production domain and per-deploy preview URLs (e.g. Vercel).
+const allowedOrigins = (process.env.CLIENT_ORIGIN || '*')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin:
+      allowedOrigins.includes('*')
+        ? '*'
+        : (origin, callback) => {
+            // allow non-browser requests (no Origin header) and any listed origin
+            if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+            callback(new Error(`CORS: origin ${origin} is not allowed`));
+          },
+  })
+);
 app.use(express.json());
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));

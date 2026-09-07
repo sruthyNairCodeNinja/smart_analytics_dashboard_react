@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: smart-factory-api
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      # Secrets / deployment-specific values — set these in the Render
+      # dashboard (Environment tab) after the first deploy:
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CLIENT_ORIGIN
+        sync: false
+      - key: SEED_ADMIN_EMAIL
+        sync: false
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
+      # Safe defaults, override in the dashboard if needed
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: SIMULATION_INTERVAL_MS
+        value: 5000

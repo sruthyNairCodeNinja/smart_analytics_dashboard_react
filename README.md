@@ -117,6 +117,63 @@ All routes except `/api/auth/register` and `/api/auth/login` require an
 | PATCH | `/api/alerts/:id/resolve` | Resolve an alert (admin) |
 | GET | `/api/stats/overview` | Dashboard KPI summary |
 
+## Deploying (Vercel + Render)
+
+The API is a persistent Express process with a background `setInterval`
+simulation loop — that doesn't run correctly as a Vercel serverless
+function (no long-lived process, no background timers between
+invocations). The split that matches this app's architecture:
+
+- **Client → Vercel** (it's a static SPA — a good fit)
+- **API → Render** (or Railway/Fly.io — anything that runs a persistent
+  Node process)
+- **Database → MongoDB Atlas** (or any reachable MongoDB)
+
+### 1. API on Render
+
+This repo includes a `render.yaml` blueprint. In the Render dashboard:
+New → Blueprint → point it at this repo/branch. It creates a web service
+rooted at `server/` running `npm install` / `npm start`. Then, in that
+service's **Environment** tab, set:
+
+| Key | Value |
+|---|---|
+| `MONGO_URI` | your MongoDB Atlas connection string |
+| `JWT_SECRET` | a long random string |
+| `CLIENT_ORIGIN` | your Vercel URL(s), comma-separated (e.g. `https://your-app.vercel.app`) — see note below |
+| `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD` | optional, for `npm run seed` |
+
+`JWT_EXPIRES_IN` and `SIMULATION_INTERVAL_MS` already have sane defaults
+in `render.yaml`. After the first deploy, run the seed script once from
+Render's Shell tab: `npm run seed`. Note your service URL (e.g.
+`https://smart-factory-api.onrender.com`) — the client needs it next.
+
+> Render's free tier spins the service down after inactivity; the first
+> request after idling can take ~30–60s to wake it back up, and the
+> simulation only ticks while the service is awake.
+
+### 2. Client on Vercel
+
+Create a Vercel project from this repo with **Root Directory set to
+`client`** (Project Settings → General → Root Directory). Vercel
+auto-detects the Vite framework preset. `client/vercel.json` (already in
+the repo) adds the SPA rewrite so client-side routes like `/machines` or
+`/alerts` don't 404 on refresh/direct load. In Project Settings →
+Environment Variables, set:
+
+| Key | Value |
+|---|---|
+| `VITE_API_URL` | your Render API URL + `/api`, e.g. `https://smart-factory-api.onrender.com/api` |
+
+Redeploy after setting it (Vite env vars are baked in at build time).
+
+### Common causes of 404 / 500 after deploying
+
+- **404 on any route but `/`** → missing the SPA rewrite (`client/vercel.json`) or the Vercel project's Root Directory isn't set to `client`.
+- **500 on every API call** → `MONGO_URI`/`JWT_SECRET` not set on the API host (they're never read from your local `.env`, which is gitignored on purpose).
+- **API calls fail with a CORS error, not a 500** → `CLIENT_ORIGIN` on the API doesn't match the client's actual deployed URL exactly (scheme + host, no trailing slash).
+- **Login works but data never appears/updates** → the API host went to sleep (Render free tier) or was deployed as serverless (Vercel) — the simulation loop needs an always-on process.
+
 ## Notes on the simulation engine
 
 `server/src/services/simulationService.js` runs a `setInterval` tick
